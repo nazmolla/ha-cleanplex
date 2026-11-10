@@ -4,29 +4,88 @@
       "user": {
         "title": "Connect to Cleanplex",
         "description": "Enter the address of your Cleanplex web UI.",
-        "data": { "url": "URL" }
+        "data": {
+          "url": "URL"
+        }
       }
     },
-    "error": { "cannot_connect": "Cannot reach Cleanplex at that address." },
-    "abort": { "already_configured": "This Cleanplex server is already added." }
+    "error": {
+      "cannot_connect": "Cannot reach Cleanplex at that address."
+    },
+    "abort": {
+      "already_configured": "This Cleanplex server is already added."
+    }
   },
   "entity": {
     "sensor": {
-      "queue_size": { "name": "Scan queue" },
-      "scan_progress": { "name": "Scan progress" },
-      "current_title": { "name": "Scanning title" },
-      "workers_active": { "name": "Active scan workers" },
-      "titles_scanned": { "name": "Titles scanned" },
-      "titles_pending": { "name": "Titles waiting" },
-      "titles_failed": { "name": "Titles failed" },
-      "active_streams": { "name": "Active streams" },
-      "filtered_streams": { "name": "Filtered streams" }
+      "queue_size": {
+        "name": "Scan queue"
+      },
+      "scan_progress": {
+        "name": "Scan progress"
+      },
+      "current_title": {
+        "name": "Scanning title"
+      },
+      "workers_active": {
+        "name": "Active scan workers"
+      },
+      "titles_scanned": {
+        "name": "Titles scanned"
+      },
+      "titles_pending": {
+        "name": "Titles waiting"
+      },
+      "titles_failed": {
+        "name": "Titles failed"
+      },
+      "active_streams": {
+        "name": "Active streams"
+      },
+      "filtered_streams": {
+        "name": "Filtered streams"
+      },
+      "skips_total": {
+        "name": "Skips total"
+      },
+      "skips_24h": {
+        "name": "Skips (24 h)"
+      },
+      "false_positives": {
+        "name": "False positives"
+      },
+      "last_skip": {
+        "name": "Last skip"
+      }
     },
     "binary_sensor": {
-      "scanning": { "name": "Scanning" },
-      "plex_connected": { "name": "Plex connection" },
-      "front_door_enabled": { "name": "Front door" }
+      "scanning": {
+        "name": "Scanning"
+      },
+      "plex_connected": {
+        "name": "Plex connection"
+      },
+      "front_door_enabled": {
+        "name": "Front door"
+      }
     },
-    "switch": { "scanner": { "name": "Scanner" } }
+    "switch": {
+      "scanner": {
+        "name": "Scanner"
+      }
+    },
+    "event": {
+      "filter_action": {
+        "name": "Filter action",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "skip": "Skip",
+              "mute": "Mute"
+            }
+          }
+        }
+      }
+    }
   }
 }

@@ -39,3 +39,33 @@ async def test_switch_pauses_and_resumes_the_scanner(hass, entry, mock_api):
     await hass.services.async_call("switch", "turn_on", {"entity_id": "switch.cleanplex_scanner"}, blocking=True)
     assert any(c[0] == "POST" and str(c[1]).endswith("/api/scan/resume") for c in mock_api.mock_calls)
     assert hass.states.get("switch.cleanplex_scanner").state in (STATE_ON, STATE_OFF)
+
+
+async def test_skip_history_sensors_and_attributes(hass, entry):
+    assert hass.states.get("sensor.cleanplex_skips_total").state == "57"
+    assert hass.states.get("sensor.cleanplex_skips_24_h").state == "3"
+    assert hass.states.get("sensor.cleanplex_false_positives").state == "9"
+    last = hass.states.get("sensor.cleanplex_last_skip")
+    assert last.state == "2026-11-10T15:00:00+00:00"
+    assert last.attributes["title"] == "Some Movie" and last.attributes["category"] == "sex_nudity"
+    streams = hass.states.get("sensor.cleanplex_active_streams")
+    assert len(streams.attributes["streams"]) == 2
+    assert len(hass.states.get("sensor.cleanplex_filtered_streams").attributes["streams"]) == 1
+
+
+async def test_event_entity_fires_only_for_new_skips(hass, entry, skips_state):
+    from datetime import timedelta
+    from homeassistant.util import dt as dt_util
+    from pytest_homeassistant_custom_component.common import async_fire_time_changed
+
+    from .conftest import SKIPS
+
+    state = hass.states.get("event.cleanplex_filter_action")
+    assert state is not None and state.attributes.get("event_type") is None  # history is not replayed
+    skips_state["data"] = {"total": 58, "events": [
+        {"id": 58, "created_at": "2026-11-10 16:00:00", "title": "New", "username": "kid", "client_title": "TV",
+         "category": "profanity", "action": "mute", "success": 1}, *SKIPS["events"]]}
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=45))
+    await hass.async_block_till_done()
+    state = hass.states.get("event.cleanplex_filter_action")
+    assert state.attributes["event_type"] == "mute" and state.attributes["title"] == "New"

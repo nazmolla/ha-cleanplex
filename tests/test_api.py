@@ -26,3 +26,22 @@ def test_parse_handles_a_paused_idle_server_with_plex_down():
     data = api.parse_data({"paused": True}, {}, {"error": "Plex not configured"}, {})
     assert data["scanner_enabled"] is False and data["scanning"] is False
     assert data["plex_connected"] is False and data["titles_total"] == 0 and data["front_door_enabled"] is False
+
+
+def test_parse_skip_history_and_streams():
+    data = api.parse_data(
+        {}, {}, {"sessions": [{"user": "a", "title": "T", "client": "C", "filtering_state": "active"}]}, {},
+        {"total": 5, "events": [{"id": 5, "created_at": "2026-11-10 15:00:00", "title": "T", "username": "a",
+                                 "client_title": "C", "category": "profanity", "action": "mute", "success": 0}]},
+        {"total": 2}, {"total": 7},
+    )
+    assert (data["skips_total"], data["skips_24h"], data["false_positives"]) == (5, 2, 7)
+    last = data["last_skip"]
+    assert last["time"].isoformat() == "2026-11-10T15:00:00+00:00" and last["success"] is False
+    assert last["user"] == "a" and last["action"] == "mute"
+    assert data["streams"][0]["filtering"] == "active"
+
+
+def test_parse_without_skip_history_from_an_older_cleanplex():
+    data = api.parse_data({}, {}, {}, {})
+    assert data["last_skip"] is None and data["skips_total"] == 0 and data["recent_skips"] == []
