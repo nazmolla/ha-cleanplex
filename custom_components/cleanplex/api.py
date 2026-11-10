@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import aiohttp
@@ -40,15 +41,29 @@ class CleanplexApi:
             enforcement = await self._request("GET", "/api/enforcement")
         except CleanplexError:
             enforcement = {}
-        return parse_data(status, queue, sessions, enforcement)
+        # Skip history and false-positive totals are nice to have: an older Cleanplex may lack them.
+        since = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        skips = await self._optional("/api/analytics/skips/history?limit=5")
+        skips_day = await self._optional(f"/api/analytics/skips/history?limit=1&start={since}")
+        false_positives = await self._optional("/api/analytics/false-positives?limit=1")
+        return parse_data(status, queue, sessions, enforcement, skips, skips_day, false_positives)
+
+    async def _optional(self, path: str) -> dict:
+        try:
+            return await self._request("GET", path)
+        except CleanplexError:
+            return {}
 
     async def set_scanning(self, enabled: bool) -> None:
         """Resume (True) or pause (False) the scanner."""
         await self._request("POST", "/api/scan/resume" if enabled else "/api/scan/pause")
 
 
-def parse_data(status: dict, queue: dict, sessions: dict, enforcement: dict) -> dict[str, Any]:
+def parse_data(status: dict, queue: dict, sessions: dict, enforcement: dict, skips: dict | None = None,
+               skips_day: dict | None = None, false_positives: dict | None = None) -> dict[str, Any]:
     """Turn the raw API answers into the flat values the entities read."""
+    skips, skips_day, false_positives = skips or {}, skips_day or {}, false_positives or {}
+    recent = [_skip(e) for e in skips.get("events", []) or []]
     counts = queue.get("counts", {}) or {}
     active_scans = status.get("active_scans", []) or []
     streams = sessions.get("sessions", []) or []
@@ -67,4 +82,33 @@ def parse_data(status: dict, queue: dict, sessions: dict, enforcement: dict) -> 
         "filtered_streams": sum(1 for s in streams if s.get("filtering_state") == "active"),
         "plex_connected": "error" not in sessions,
         "front_door_enabled": bool(enforcement.get("enabled", False)),
+        "streams": [
+            {"user": s.get("user", ""), "title": s.get("title", ""), "client": s.get("client", ""),
+             "filtering": s.get("filtering_state", "")}
+            for s in streams
+        ],
+        "skips_total": int(skips.get("total", 0) or 0),
+        "skips_24h": int(skips_day.get("total", 0) or 0),
+        "false_positives": int(false_positives.get("total", 0) or 0),
+        "recent_skips": recent,  # newest first
+        "last_skip": recent[0] if recent else None,
+    }
+
+
+def _skip(event: dict) -> dict[str, Any]:
+    """One skip-history row, trimmed to what Home Assistant shows. created_at is naive UTC."""
+    created = None
+    try:
+        created = datetime.strptime(event["created_at"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except (KeyError, ValueError, TypeError):
+        pass
+    return {
+        "id": int(event.get("id", 0) or 0),
+        "time": created,
+        "title": event.get("title", ""),
+        "user": event.get("username", ""),
+        "client": event.get("client_title", ""),
+        "category": event.get("category", ""),
+        "action": event.get("action", "skip"),
+        "success": bool(event.get("success", 1)),
     }
